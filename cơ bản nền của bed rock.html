@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Bedrock Sound Pack Generator</title>
+    <!-- Thư viện JSZip để nén file trực tiếp trên trình duyệt -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #ffffff;
+            color: #000000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+            animation: fadeIn 0.25s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 500;
+            margin-bottom: 35px;
+            letter-spacing: -1px;
+        }
+
+        /* Nút chính màn hình Welcome (Gradient Tím) */
+        .btn-purple {
+            width: 100%;
+            max-width: 450px;
+            height: 110px;
+            background: linear-gradient(90deg, #9b51e0 0%, #bb6bd9 100%);
+            border: 2px solid #6b21a8;
+            border-radius: 16px;
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 auto 25px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        .btn-purple:hover { opacity: 0.9; transform: translateY(-2px); }
+
+        /* Nút màn hình Bedrock (Chỉ còn âm thanh) */
+        .btn-sound {
+            width: 100%;
+            max-width: 450px;
+            height: 110px;
+            background-color: #c4dcff;
+            border: 2px solid #333333;
+            border-radius: 16px;
+            color: #000000;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        .btn-sound:hover { background-color: #a3c9ff; }
+
+        /* Nút Back */
+        .btn-back {
+            background: none;
+            border: none;
+            color: #555555;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 25px;
+            display: inline-block;
+            text-align: left;
+            width: 100%;
+            max-width: 450px;
+        }
+        .btn-back:hover { color: #000000; text-decoration: underline; }
+
+        /* Form Upload & Tạo Pack */
+        .form-box {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #cccccc;
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            border-color: #9b51e0;
+        }
+
+        .form-group textarea {
+            resize: none;
+            height: 70px;
+        }
+
+        /* Khung danh sách các file âm thanh riêng lẻ */
+        .sound-slots-container {
+            margin-bottom: 25px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .sound-slot {
+            background: #faf5ff;
+            border: 2px dashed #9b51e0;
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sound-slot-info text-align: left; }
+
+        .sound-slot-info .title {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: #6b21a8;
+        }
+
+        .sound-slot-info .filename {
+            font-size: 0.75rem;
+            color: #666;
+            font-family: monospace;
+        }
+
+        .sound-slot input[type="file"] {
+            display: none;
+        }
+
+        .btn-upload-file {
+            background: #9b51e0;
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+
+        .btn-upload-file:hover { background: #8238c9; }
+        .btn-upload-file.uploaded { background: #27ae60; }
+
+        .btn-submit {
+            width: 100%;
+            height: 60px;
+            background: #27ae60;
+            border: 2px solid #1e8449;
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-submit:hover { background: #219653; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- MÀN HÌNH 1: WELCOME -->
+        <div id="welcome-view" class="view active">
+            <h1>welcom</h1>
+            <button class="btn-purple" onclick="switchView('bedrock-view')">bedrock</button>
+            <button class="btn-purple" onclick="alert('Phiên bản Java đang phát triển!')">java</button>
+        </div>
+
+        <!-- MÀN HÌNH 2: BEDROCK (Chỉ còn nút Âm thanh) -->
+        <div id="bedrock-view" class="view">
+            <button class="btn-back" onclick="switchView('welcome-view')">← Quay lại</button>
+            <h1>bedrock</h1>
+            <button class="btn-sound" onclick="openSoundConfig()">âm thanh</button>
+        </div>
+
+        <!-- MÀN HÌNH 3: UPLOAD TỪNG TỆP ÂM THANH & TẠO PACK -->
+        <div id="upload-view" class="view">
+            <button class="btn-back" onclick="switchView('bedrock-view')">← Quay lại</button>
+            <h1>tạo pack âm thanh</h1>
+            
+            <div class="form-box">
+                <div class="form-group">
+                    <label>Tên Resource Pack:</label>
+                    <input type="text" id="pack-name" value="BedrockBedSoundPack" placeholder="Nhập tên pack...">
+                </div>
+
+                <div class="form-group">
+                    <label>Mô tả Pack:</label>
+                    <textarea id="pack-desc" placeholder="Mô tả ngắn...">Gói âm thanh đập giường tùy chỉnh</textarea>
+                </div>
+
+                <label style="display:block; font-size:0.95rem; font-weight:600; margin-bottom:8px; color:#333; text-align:left;">Danh sách file âm thanh:</label>
+                
+                <!-- Khu vực các ô upload âm thanh riêng biệt -->
+                <div id="sound-slots-container" class="sound-slots-container"></div>
+
+                <button class="btn-submit" onclick="generatePack()">Tạo & Tải Về (.mcpack)</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        // =========================================================================
+        // NƠI CẤU HÌNH ÂM THANH: Bạn muốn thêm âm thanh mới? Chỉ cần thêm 1 dòng ở đây!
+        // =========================================================================
+        const soundConfig = {
+            subFolder: "sounds/respawn_anchor", // Thư mục lưu âm thanh trong Bedrock (hoặc đổi thành sounds/random tùy ý)
+            files: [
+                { label: "Âm thanh Đập Giường / Hủy Giường", targetName: "bed_click.ogg" }
+                // ➔ Muốn thêm file mới? Chỉ cần copy dòng trên xuống dưới và sửa lại label và targetName!
+                // Ví dụ: { label: "Tiếng nổ", targetName: "explode.ogg" }
+            ]
+        };
+
+        let uploadedFilesMap = {};
+
+        function openSoundConfig() {
+            uploadedFilesMap = {};
+            renderSoundSlots();
+            switchView('upload-view');
+        }
+
+        // Render các ô upload riêng biệt cho từng tệp âm thanh
+        function renderSoundSlots() {
+            const container = document.getElementById('sound-slots-container');
+            container.innerHTML = '';
+
+            soundConfig.files.forEach((fileConfig, index) => {
+                const slot = document.createElement('div');
+                slot.className = 'sound-slot';
+                
+                const assignedFile = uploadedFilesMap[fileConfig.targetName];
+                const fileNameText = assignedFile ? `Đã chọn: ${assignedFile.name}` : `Yêu cầu file: ${fileConfig.targetName}`;
+                const btnClass = assignedFile ? 'btn-upload-file uploaded' : 'btn-upload-file';
+                const btnText = assignedFile ? 'Đã tải lên ✓' : 'Chọn file';
+
+                slot.innerHTML = `
+                    <div class="sound-slot-info">
+                        <div class="title">${fileConfig.label}</div>
+                        <div class="filename">${fileNameText}</div>
+                    </div>
+                    <div>
+                        <button class="${btnClass}" onclick="document.getElementById('file-input-${index}').click()">${btnText}</button>
+                        <input type="file" id="file-input-${index}" accept="audio/ogg,audio/mpeg,audio/wav" onchange="handleFileSelect(event, '${fileConfig.targetName}')">
+                    </div>
+                `;
+                container.appendChild(slot);
+            });
+        }
+
+        function handleFileSelect(event, targetName) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadedFilesMap[targetName] = file;
+                renderSoundSlots(); 
+            }
+        }
+
+        // Tạo UUID chuẩn Bedrock
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // Đóng gói file thành .mcpack
+        function generatePack() {
+            const packName = document.getElementById('pack-name').value.trim() || 'BedrockBedSoundPack';
+            const description = document.getElementById('pack-desc').value.trim();
+
+            const fileKeys = Object.keys(uploadedFilesMap);
+            if (fileKeys.length === 0) {
+                alert('Vui lòng chọn ít nhất một file âm thanh!');
+                return;
+            }
+
+            const zip = new JSZip();
+
+            // 1. Tạo file manifest.json chuẩn Bedrock
+            const manifest = {
+                format_version: 2,
+                header: {
+                    name: packName,
+                    description: description,
+                    uuid: generateUUID(),
+                    version: [1, 0, 0],
+                    min_engine_version: [1, 16, 0]
+                },
+                modules: [{
+                    type: "resources",
+                    uuid: generateUUID(),
+                    version: [1, 0, 0]
+                }]
+            };
+            zip.file("manifest.json", JSON.stringify(manifest, null, 4));
+
+            // 2. Đưa file vào đúng thư mục và đổi tên thành targetName chính xác
+            const targetFolder = zip.folder(soundConfig.subFolder);
+            let processed = 0;
+
+            fileKeys.forEach(targetName => {
+                const file = uploadedFilesMap[targetName];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    targetFolder.file(targetName, e.target.result);
+                    processed++;
+                    
+                    if (processed === fileKeys.length) {
+                        zip.generateAsync({ type: "blob" }).then(content => {
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(content);
+                            link.download = `${packName}.mcpack`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            alert(`Đã tạo và tải xuống thành công file ${packName}.mcpack!`);
+                        });
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+    </script>
+</body>
+</html>
